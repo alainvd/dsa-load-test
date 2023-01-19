@@ -48,7 +48,7 @@ class FireNotice implements ShouldQueue
             'accept' => 'application/json',
             'content-type' => 'application/json'
         ])->post($url, [
-            'title' => $this->id . " - " . $this->faker->sentence(4),
+            'title' => config('app.name') . " - " . $this->id . " - " . $this->faker->sentence(4),
             'body' => $this->faker->text,
             'language' => $this->faker->regexify('[A-Za-z0-9]{50}'),
             'date_sent' => Carbon::createMidnightDate($this->faker->date())->addHours($this->faker->numberBetween(3,23))->addMinutes($this->faker->numberBetween(0,59))->addSeconds($this->faker->numberBetween(0,59))->toDateTimeString(),
