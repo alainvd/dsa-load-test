@@ -212,4 +212,7 @@ return [
         // 'ExampleClass' => App\Example\ExampleClass::class,
     ])->toArray(),
 
+    'remote_url' => env('REMOTE_URL', ''),
+    'remote_token' => env('REMOTE_TOKEN', ''),
+
 ];
