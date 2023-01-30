@@ -43,35 +43,71 @@ class FireNotice implements ShouldQueue
         $this->faker = Container::getInstance()->make(Generator::class);
         $url = config('app.remote_url');
 
+        $date_sent = Carbon::createMidnightDate($this->faker->dateTimeThisYear())->addHours($this->faker->numberBetween(3,23))->addMinutes($this->faker->numberBetween(0,59))->addSeconds($this->faker->numberBetween(0,59));
+
+        $data = [
+            'title' => config('app.name') . " - " . $this->id . " - " . $this->faker->sentence(4),
+            'body' => $this->createStatement(),
+            'language' => $this->faker->randomElement(["EN","FR"]),
+            'date_sent' => $date_sent->toDateTimeString(),
+            'countries_list' => $this->faker->randomElement(["IE","DE","FR","NL","BE"]),
+            'source' => $this->faker->randomElement(["Article 16","voluntary own-initiative investigation"]),
+            'payment_status' => $this->faker->randomElement(["suspension","termination","other"]),
+            'automated_detection' => $this->faker->randomElement(["Yes","No","Partial"]),
+
+        ];
+
+        if(rand(0,100)>10){
+            $months = rand(1,10);
+            $data['date_enacted'] = $date_sent->toDateTimeString();
+            $data['date_abolished'] = $date_sent->addMonths($months)->toDateTimeString();
+        }
+
+        if(rand(0,100)>80){
+            $data['illegal_content_legal_ground'] = $this->faker->text;
+            $data['illegal_content_explanation'] = $this->faker->text;
+        }
+
+        if(rand(0,100)>80){
+            $data['toc_contractual_ground'] = $this->faker->text;
+            $data['toc_explanation'] = $this->faker->text;
+        }
+
+        if(rand(0,100)>80){
+            $data['automated_detection_more'] = fake()->text;
+        }
+
+        $data['restriction_type'] = fake()->randomElement(["removed","disabled","demoted","other"]);
+        if ($data['restriction_type'] == "other"){
+            $data['restriction_type_other'] = fake()->text;
+        }
+
+        $data['redress'] = fake()->randomElement(["Internal Mechanism","Out Of Court Settlement","other"]);
+        if ($data['redress'] == "other"){
+            $data['redress_more'] = fake()->text;
+        }
+
+
         $response = Http::withHeaders([
             'Authorization' => 'Bearer '.config('app.remote_token'),
             'accept' => 'application/json',
             'content-type' => 'application/json'
-        ])->post($url, [
-            'title' => config('app.name') . " - " . $this->id . " - " . $this->faker->sentence(4),
-            'body' => $this->faker->text,
-            'language' => $this->faker->languageCode,
-            'date_sent' => Carbon::createMidnightDate($this->faker->date())->addHours($this->faker->numberBetween(3,23))->addMinutes($this->faker->numberBetween(0,59))->addSeconds($this->faker->numberBetween(0,59))->toDateTimeString(),
-            'date_enacted' => Carbon::createMidnightDate($this->faker->date())->addHours($this->faker->numberBetween(3,23))->addMinutes($this->faker->numberBetween(0,59))->addSeconds($this->faker->numberBetween(0,59))->toDateTimeString(),
-            'date_abolished' => Carbon::createMidnightDate($this->faker->date())->addHours($this->faker->numberBetween(3,23))->addMinutes($this->faker->numberBetween(0,59))->addSeconds($this->faker->numberBetween(0,59))->toDateTimeString(),
-            'countries_list' => $this->faker->countryCode,
-            'source' => $this->faker->randomElement(["Article 16","voluntary own-initiative investigation"]),
-            'payment_status' => $this->faker->randomElement(["suspension","termination","other"]),
-            'restriction_type' => $this->faker->randomElement(["removed","disabled","demoted","other"]),
-            'restriction_type_other' => $this->faker->text,
-            'automated_detection' => $this->faker->randomElement(["Yes","No","Partial"]),
-            'automated_detection_more' => $this->faker->text,
-            'illegal_content_legal_ground' => $this->faker->text,
-            'illegal_content_explanation' => $this->faker->text,
-            'toc_contractual_ground' => $this->faker->text,
-            'toc_explanation' => $this->faker->text,
-            'redress' => $this->faker->randomElement(["Internal Mechanism","Out Of Court Settlement","Other"]),
-            'redress_more' => $this->faker->text,
-        ]);
+        ])->post($url, $data);
 
         if ($response->failed()) {
             Log::info('[ERROR] '.$this->id . ': ' . $response);
         };
 
+    }
+
+    private function createStatement()
+    {
+        return "Dear valued user,
+
+We regret to inform you that the content you have posted on our platform has been removed due to a violation of our terms of service. Specifically, the content in question was found to be in violation of our policies on hate speech and promoting violence.
+
+We understand that you may be disappointed or frustrated by this decision, but it is important to us to maintain a safe and inclusive environment for all of our users. We do not allow content that promotes or condones hate or violence against any individual or group, as it goes against the values and principles of our community.
+
+We encourage you to review our terms of service and community guidelines in the future to ensure that your future posts are in compliance with our policies. We appreciate your understanding and cooperation.";
     }
 }
