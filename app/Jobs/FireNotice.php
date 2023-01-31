@@ -43,14 +43,43 @@ class FireNotice implements ShouldQueue
         $this->faker = Container::getInstance()->make(Generator::class);
         $url = config('app.remote_url');
 
+        $companies =          [
+            "Youtube",
+            "Google",
+            "Amazon",
+            "Apple",
+            "Microsoft",
+
+            "Tencent",
+            "Shopify",
+            "Facebook",
+            "Twitter",
+            "Reddit",
+
+            "TikTok",
+            "Pinterest",
+            "Instagram",
+            "LinkedIn",
+            "Snapchat",
+
+            "Dailymotion",
+            "Vimeo",
+            "Flickr",
+            "WeChat",
+            "Tumblr"
+
+        ];
+
         $date_sent = Carbon::createMidnightDate($this->faker->dateTimeThisYear())->addHours($this->faker->numberBetween(3,23))->addMinutes($this->faker->numberBetween(0,59))->addSeconds($this->faker->numberBetween(0,59));
 
+
+
         $data = [
-            'title' => config('app.name') . " - " . $this->id . " - " . $this->faker->sentence(4),
+            'title' => $this->faker->randomElement($companies) . " - Claim #" . rand(10000,999999),
             'body' => $this->createStatement(),
-            'language' => $this->faker->randomElement(["EN","FR"]),
+            'language' => $this->faker->randomElement(["en","fr"]),
             'date_sent' => $date_sent->toDateTimeString(),
-            'countries_list' => $this->faker->randomElement(["IE","DE","FR","NL","BE"]),
+            'countries_list' => $this->faker->randomElements(["IE","DE","FR","NL","BE","US"]),
             'source' => $this->faker->randomElement(["Article 16","voluntary own-initiative investigation"]),
             'payment_status' => $this->faker->randomElement(["suspension","termination","other"]),
             'automated_detection' => $this->faker->randomElement(["Yes","No","Partial"]),
@@ -82,8 +111,8 @@ class FireNotice implements ShouldQueue
             $data['restriction_type_other'] = fake()->text;
         }
 
-        $data['redress'] = fake()->randomElement(["Internal Mechanism","Out Of Court Settlement","other"]);
-        if ($data['redress'] == "other"){
+        $data['redress'] = fake()->randomElement(["Internal Mechanism","Out Of Court Settlement","Other"]);
+        if ($data['redress'] == "Other"){
             $data['redress_more'] = fake()->text;
         }
 
