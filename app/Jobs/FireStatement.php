@@ -15,7 +15,7 @@ use Faker\Generator;
 use Illuminate\Container\Container;
 
 
-class FireNotice implements ShouldQueue
+class FireStatement implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
