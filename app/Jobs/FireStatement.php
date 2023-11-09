@@ -43,37 +43,55 @@ class FireStatement implements ShouldQueue
         $this->faker = Container::getInstance()->make(Generator::class);
         $url = config('app.remote_url');
 
-        $date_sent = Carbon::createMidnightDate($this->faker->dateTimeThisYear())->addHours($this->faker->numberBetween(3,23))->addMinutes($this->faker->numberBetween(0,59))->addSeconds($this->faker->numberBetween(0,59));
+        $date_sent = $this->faker->dateTimeThisYear->format('Y-m-d');
+        $content_date = $this->faker->dateTimeThisYear->format('Y-m-d');
+        $application_date = $this->faker->dateTimeThisYear->format('Y-m-d');
+
 
         $data = [
-            'start_date' => $date_sent->toDateTimeString(),
+            'start_date' => $date_sent,
+            'content_date' => $content_date,
+            'application_date' => $application_date,
             'countries_list' => $this->faker->randomElements(["IE","DE","FR","NL","BE"]),
-            "decision_visibility" => fake()->randomElement(["CONTENT_OTHER","CONTENT_DEMOTED","CONTENT_DISABLED","CONTENT_REMOVAL"]),
-            "decision_monetary" => fake()->randomElement(["MONETARY_SUSPENSION","MONETARY_TERMINATION","MONETARY_OTHER"]),
-            "decision_provision" => fake()->randomElement(["PARTIAL_SUSPENSION","TOTAL_SUSPENSION","PARTIAL_TERMINATION","TOTAL_TERMINATION"]),
-            "decision_account" => fake()->randomElement(["ACCOUNT_SUSPENDED","ACCOUNT_TERMINATED"]),
-            "content_type"=> fake()->randomElement(["TEXT","VIDEO","IMAGE","OTHER"]),
-            "category"=> fake()->randomElement(["PIRACY","DISCRIMINATION","COUNTERFEIT","FRAUD","TERRORISM","CHILD_SAFETY","NON_CONSENT","MISINFORMATION","VIOLATION_TOS","UNCATEGORISED"]),
+            "decision_visibility" => fake()->randomElements(["DECISION_VISIBILITY_CONTENT_REMOVED","DECISION_VISIBILITY_CONTENT_DISABLED","DECISION_VISIBILITY_CONTENT_DEMOTED"]),
+            "decision_monetary" => fake()->randomElement(["DECISION_MONETARY_SUSPENSION","DECISION_MONETARY_TERMINATION"]),
+            "decision_provision" => fake()->randomElement(["DECISION_PROVISION_PARTIAL_SUSPENSION","DECISION_PROVISION_TOTAL_SUSPENSION","DECISION_PROVISION_PARTIAL_TERMINATION","DECISION_PROVISION_TOTAL_TERMINATION"]),
+            "decision_account" => fake()->randomElement(["DECISION_ACCOUNT_SUSPENDED","DECISION_ACCOUNT_TERMINATED"]),
+            "content_type"=> fake()->randomElements(["CONTENT_TYPE_TEXT","CONTENT_TYPE_VIDEO","CONTENT_TYPE_IMAGE"]),
+            "category"=> fake()->randomElement(["STATEMENT_CATEGORY_ANIMAL_WELFARE","STATEMENT_CATEGORY_DATA_PROTECTION_AND_PRIVACY_VIOLATIONS","STATEMENT_CATEGORY_ILLEGAL_OR_HARMFUL_SPEECH","STATEMENT_CATEGORY_INTELLECTUAL_PROPERTY_INFRINGEMENTS"]),
 
-            "incompatible_content_illegal"=> fake()->boolean,
+            "incompatible_content_illegal"=> fake()->randomElement(["Yes","No"]),
             "decision_facts"=> "facts about the decision",
             "automated_detection"=> fake()->randomElement(["Yes","No"]),
-            "automated_decision"=> fake()->randomElement(["Yes","No"]),
-
+            "automated_decision"=> fake()->randomElement(["AUTOMATED_DECISION_FULLY","AUTOMATED_DECISION_PARTIALLY","AUTOMATED_DECISION_NOT_AUTOMATED"]),
+            "source_type"=> fake()->randomElement(["SOURCE_ARTICLE_16","SOURCE_TRUSTED_FLAGGER","SOURCE_VOLUNTARY"]),
+            "source" => fake()->word,
+            "puid"=> fake()->uuid,
             "url" => fake()->url,
         ];
 
-        $data['decision_ground'] = fake()->randomElement(["ILLEGAL_CONTENT","INCOMPATIBLE_CONTENT"]);
-        if ($data['decision_ground'] == "ILLEGAL_CONTENT"){
+        $data['decision_ground'] = fake()->randomElement(["DECISION_GROUND_ILLEGAL_CONTENT","DECISION_GROUND_INCOMPATIBLE_CONTENT"]);
+        if ($data['decision_ground'] == "DECISION_GROUND_ILLEGAL_CONTENT"){
             $data['illegal_content_legal_ground'] = fake()->text;
             $data['illegal_content_explanation'] = fake()->text;
         }
-        if ($data['decision_ground'] == "INCOMPATIBLE_CONTENT"){
+        if ($data['decision_ground'] == "DECISION_GROUND_INCOMPATIBLE_CONTENT"){
             $data['incompatible_content_ground'] = fake()->text;
             $data['incompatible_content_explanation'] = fake()->text;
         }
 
-        $data['source'] = fake()->randomElement(["SOURCE_ARTICLE_16","SOURCE_TRUSTED_FLAGGER","SOURCE_VOLUNTARY"]);
+        // Create an array to store the cloned objects
+        $statements = [];
+
+        // Clone the object 100 times and change the 'field1' value in each clone
+        for ($i = 0; $i < 100; $i++) {
+            $clonedStatement = $data; // Clone the object
+            $clonedStatement['puid'] = fake()->uuid; // Modify the 'field1' in the cloned object
+            $statements[] = $clonedStatement; // Store the cloned object in the array
+        }
+
+
+        $data = array('statements' => $statements);
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer '.config('app.remote_token'),
