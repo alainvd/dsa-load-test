@@ -95,7 +95,7 @@ class FireStatement implements ShouldQueue
 
         $data = array('statements' => $statements);
 
-        $response = Http::withHeaders([
+        $response = Http::timeout(60)->connectTimeout(60)->withHeaders([
             'Authorization' => 'Bearer '.config('app.remote_token'),
             'accept' => 'application/json',
             'content-type' => 'application/json'

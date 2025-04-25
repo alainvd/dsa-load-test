@@ -81,7 +81,7 @@ class FireSingleStatement implements ShouldQueue
         // Send a single statement instead of a batch
         //$data = array('statements' => [$statement]);
 
-        $response = Http::withHeaders([
+        $response = Http::timeout(60)->connectTimeout(60)->withHeaders([
             'Authorization' => 'Bearer '.config('app.remote_token'),
             'accept' => 'application/json',
             'content-type' => 'application/json'
