@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -14,6 +13,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Faker\Generator;
 use Illuminate\Container\Container;
+use Carbon\Carbon as CarbonTime;
+use Illuminate\Support\Facades\Cache;
 
 
 class FireStatement implements ShouldQueue
@@ -95,15 +96,74 @@ class FireStatement implements ShouldQueue
 
         $data = array('statements' => $statements);
 
+        $startTime = CarbonTime::now();
+        
+        // Record the first statement timestamp if not already set
+        if (Cache::get('batch_processing_start') === null) {
+            Cache::put('batch_processing_start', $startTime->toIso8601String(), now()->addHours(1));
+            Log::info('[METRICS] First batch statement started sending', [
+                'timestamp' => $startTime->toIso8601String(),
+                'batch_id' => $this->id
+            ]);
+        }
+        
         $response = Http::timeout(60)->connectTimeout(60)->withHeaders([
             'Authorization' => 'Bearer '.config('app.remote_token'),
             'accept' => 'application/json',
             'content-type' => 'application/json'
         ])->post($url, $data);
-
+        
+        $endTime = CarbonTime::now();
+        
+        // Always update the end time as this could be the last statement
+        Cache::put('batch_processing_end', $endTime->toIso8601String(), now()->addHours(1));
+        
+        // Increment the processed count
+        $processed = Cache::increment('batch_processed_count');
+        $total = Cache::get('total_batch_count');
+        
+        // Always log the current progress for debugging
+        Log::debug("[METRICS] Batch progress", [
+            'processed' => $processed,
+            'total' => $total,
+            'batch_id' => $this->id
+        ]);
+        
+        // If this is the last batch, log the complete metrics
+        if ($processed >= $total) {
+            $startTimeStr = Cache::get('batch_processing_start');
+            $endTimeStr = Cache::get('batch_processing_end');
+            
+            // Make sure we have valid timestamps
+            if ($startTimeStr && $endTimeStr) {
+                $startTimeObj = CarbonTime::parse($startTimeStr);
+                $endTimeObj = CarbonTime::parse($endTimeStr);
+                $duration = $endTimeObj->diffInSeconds($startTimeObj);
+                
+                Log::info('[METRICS] All batch statements completed', [
+                    'timestamp_start' => $startTimeStr,
+                    'timestamp_end' => $endTimeStr,
+                    'duration_seconds' => $duration,
+                    'total_batches' => $total,
+                    'processed_batches' => $processed,
+                    'total_statements' => $total * 100 // Each batch has 100 statements
+                ]);
+            } else {
+                Log::warning('[METRICS] Could not generate final batch metrics - missing timestamps', [
+                    'has_start_time' => (bool)$startTimeStr,
+                    'has_end_time' => (bool)$endTimeStr,
+                    'processed' => $processed,
+                    'total' => $total
+                ]);
+            }
+        }
+        
         if ($response->failed()) {
-            Log::info('[ERROR] '.$this->id . ': ' . $response);
-        };
+            Log::info('[ERROR] Batch statement API call failed', [
+                'batch_id' => $this->id,
+                'status' => $response->status()
+            ]);
+        }
 
     }
 }

@@ -8,6 +8,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class DispatchSingleStatements implements ShouldQueue
 {
@@ -36,7 +38,22 @@ class DispatchSingleStatements implements ShouldQueue
      */
     public function handle()
     {
-        Log::info("Starting to dispatch {$this->total} single statements");
+        // Force delete and reset all cache keys to ensure clean state
+        Cache::forget('single_processing_start');
+        Cache::forget('single_processing_end');
+        Cache::forget('single_processed_count');
+        Cache::forget('total_single_count');
+        
+        // Now set the initial values
+        Cache::put('single_processing_start', null, now()->addHours(1));
+        Cache::put('single_processing_end', null, now()->addHours(1));
+        Cache::put('single_processed_count', 0, now()->addHours(1));
+        
+        // Store the total number of single statements for later reference
+        Cache::put('total_single_count', $this->total, now()->addHours(1));
+        
+        // Log that we're starting to dispatch jobs
+        Log::info("[METRICS] Starting to dispatch {$this->total} single statements");
 
         // Process in smaller batches to avoid memory issues
         for ($i = 1; $i <= $this->total; $i++) {
@@ -44,10 +61,10 @@ class DispatchSingleStatements implements ShouldQueue
 
             // Add a small delay every batch to prevent overwhelming the queue
             if ($i % $this->batchSize === 0) {
-                Log::info("Dispatched {$i} of {$this->total} single statements");
+                // No intermediate logging to reduce log verbosity
             }
         }
-
-        Log::info("Completed dispatching all {$this->total} single statements");
+        
+        Log::info("[METRICS] Completed dispatching all {$this->total} single statements");
     }
 }
