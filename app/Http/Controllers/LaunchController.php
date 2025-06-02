@@ -31,12 +31,12 @@ class LaunchController extends Controller
         $limit = (int) $request->get('limit');
 
         // Validate the limit to prevent excessive load
-        if ($limit > 100) {
+        if ($limit > 1000) {
             return back()->with('status', 'Error: Maximum limit is 100,000 statements');
         }
 
         // Dispatch a single background job that will handle creating all the individual statement jobs
-        foreach(range(1, 1000) as $i) {
+        foreach(range(1, 100) as $i) {
             DispatchSingleStatements::dispatch($limit);
         }
         return back()->with('status', "Processing $limit single statements in the background");

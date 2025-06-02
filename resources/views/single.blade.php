@@ -10,7 +10,7 @@ DSA Load Test - Single Statement
 </div>
 
 <form action="{{ route('fire-single') }}" method="post">
-    <p>Number of statements to send (1000 by 1000):</p>
+    <p>Number of statements to send (100 by 100):</p>
     <input type="number" name="limit">
     @csrf
     <button type="submit">Fire Single</button>
