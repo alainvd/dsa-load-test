@@ -44,20 +44,24 @@
                 <span class="block sm:inline">{{ session('success') }}</span>
             </div>
         @endif
-        
+
         @if ($count > 0)
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div class="bg-blue-50 p-6 rounded-lg shadow">
                     <h2 class="text-xl font-semibold text-blue-700 mb-2">Total Responses</h2>
                     <p class="text-3xl font-bold text-blue-500">{{ $count }}</p>
                 </div>
-                <div class="bg-green-50 p-6 rounded-lg shadow">
+                                <div class="bg-green-50 p-6 rounded-lg shadow">
                     <h2 class="text-xl font-semibold text-green-700 mb-2">Time Span</h2>
-                    <p class="text-3xl font-bold text-green-500">{{ $duration ?? 'N/A' }}</p>
+                                        <p class="text-3xl font-bold text-green-500">{{ $duration ?? 'N/A' }}</p>
+                </div>
+                <div class="bg-red-50 p-6 rounded-lg shadow">
+                    <h2 class="text-xl font-semibold text-red-700 mb-2">API Errors</h2>
+                    <p class="text-3xl font-bold text-red-500">{{ $apiErrorCount }}</p>
                 </div>
             </div>
 
-            <div class="bg-gray-50 p-6 rounded-lg shadow mb-6">
+                        <div class="bg-gray-50 p-6 rounded-lg shadow mb-6">
                 <h2 class="text-xl font-semibold text-gray-700 mb-4">Response Timestamps</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -73,6 +77,24 @@
         @else
             <div class="bg-yellow-50 p-6 rounded-lg shadow text-center">
                 <p class="text-xl text-yellow-700">No statement responses found yet.</p>
+            </div>
+        @endif
+
+        @if ($apiErrorCount > 0)
+            <div class="bg-gray-50 p-6 rounded-lg shadow mb-6">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">API Errors by Status Code</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach ($apiErrorsByStatus as $error)
+                        <div class="p-4 bg-white rounded-lg shadow">
+                            <p class="text-gray-600 font-medium">Status {{ $error->status_code }}</p>
+                            <p class="text-lg text-gray-800">{{ $error->total }} errors</p>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @elseif ($count == 0 && $apiErrorCount == 0)
+            <div class="bg-yellow-50 p-6 rounded-lg shadow text-center mt-6">
+                 <p class="text-xl text-yellow-700">No API errors found yet.</p>
             </div>
         @endif
 

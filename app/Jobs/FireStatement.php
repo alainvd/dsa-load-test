@@ -15,6 +15,7 @@ use Faker\Generator;
 use Illuminate\Container\Container;
 use Carbon\Carbon as CarbonTime;
 use Illuminate\Support\Facades\Cache;
+use App\Models\ApiError;
 
 
 class FireStatement implements ShouldQueue
@@ -97,7 +98,7 @@ class FireStatement implements ShouldQueue
         $data = array('statements' => $statements);
 
         $startTime = CarbonTime::now();
-        
+
         // Record the first statement timestamp if not already set
         if (Cache::get('batch_processing_start') === null) {
             Cache::put('batch_processing_start', $startTime->toIso8601String(), now()->addHours(1));
@@ -106,8 +107,9 @@ class FireStatement implements ShouldQueue
                 'batch_id' => $this->id
             ]);
         }
-        
-        $response = Http::timeout(60)->connectTimeout(60)->withHeaders([
+
+        try {
+            $response = Http::timeout(60)->connectTimeout(60)->withHeaders([
             'Authorization' => 'Bearer '.config('app.remote_token'),
             'accept' => 'application/json',
             'content-type' => 'application/json'
@@ -161,9 +163,38 @@ class FireStatement implements ShouldQueue
         if ($response->failed()) {
             Log::info('[ERROR] Batch statement API call failed', [
                 'batch_id' => $this->id,
-                'status' => $response->status()
+                'status' => $response->status(),
+                'response_body' => $response->body()
+            ]);
+
+            ApiError::create([
+                'statement_response_id' => null, // Assuming no individual statement ID at this batch level
+                'url' => $url,
+                'method' => 'POST',
+                'request_payload' => json_encode($data),
+                'status_code' => $response->status(),
+                'error_message' => 'API request failed',
+                'response_body' => $response->body(),
             ]);
         }
+    } catch (ConnectionException $e) {
+        Log::error('[ERROR] Batch statement API connection failed', [
+            'batch_id' => $this->id,
+            'error' => $e->getMessage(),
+        ]);
+
+        ApiError::create([
+            'statement_response_id' => null,
+            'url' => $url,
+            'method' => 'POST',
+            'request_payload' => json_encode($data),
+            'status_code' => null, // No HTTP status code for connection exception
+            'error_message' => $e->getMessage(),
+            'response_body' => null,
+        ]);
+        // Optionally rethrow or handle as per application's error handling strategy
+        // throw $e;
+    }
 
     }
 }
