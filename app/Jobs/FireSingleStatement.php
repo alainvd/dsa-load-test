@@ -16,6 +16,7 @@ use Faker\Generator;
 use Illuminate\Container\Container;
 use Carbon\Carbon as CarbonTime;
 use Illuminate\Support\Facades\Cache;
+use App\Models\StatementResponse;
 
 class FireSingleStatement implements ShouldQueue
 {
@@ -99,6 +100,16 @@ class FireSingleStatement implements ShouldQueue
             'accept' => 'application/json',
             'content-type' => 'application/json'
         ])->post($url, $statement);
+
+        if ($response->successful()) {
+            $responseData = $response->json();
+            if (isset($responseData['uuid']) && isset($responseData['created_at'])) {
+                StatementResponse::create([
+                    'uuid' => $responseData['uuid'],
+                    'response_created_at' => Carbon::parse($responseData['created_at']),
+                ]);
+            }
+        }
 
         $endTime = CarbonTime::now();
 
