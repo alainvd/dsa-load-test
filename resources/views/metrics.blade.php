@@ -54,6 +54,9 @@
                                 <div class="bg-green-50 p-6 rounded-lg shadow">
                     <h2 class="text-xl font-semibold text-green-700 mb-2">Time Span</h2>
                                         <p class="text-3xl font-bold text-green-500">{{ $duration ?? 'N/A' }}</p>
+                    @if($durationInSeconds !== null)
+                        <p class="text-sm text-green-600">({{ $durationInSeconds }} seconds)</p>
+                    @endif
                 </div>
                 <div class="bg-red-50 p-6 rounded-lg shadow">
                     <h2 class="text-xl font-semibold text-red-700 mb-2">API Errors</h2>

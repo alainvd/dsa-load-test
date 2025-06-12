@@ -16,10 +16,12 @@ class MetricsController extends Controller
         $lastRecord = StatementResponse::orderBy('response_created_at', 'desc')->first();
 
         $duration = null;
+        $durationInSeconds = null;
         if ($firstRecord && $lastRecord) {
             $firstTime = Carbon::parse($firstRecord->response_created_at);
             $lastTime = Carbon::parse($lastRecord->response_created_at);
             $duration = $lastTime->diffForHumans($firstTime, true);
+            $durationInSeconds = $firstTime->diffInSeconds($lastTime);
         }
 
                 $apiErrorCount = ApiError::count();
@@ -33,6 +35,7 @@ class MetricsController extends Controller
             'firstRecordTime' => $firstRecord ? Carbon::parse($firstRecord->response_created_at)->toDateTimeString() : null,
             'lastRecordTime' => $lastRecord ? Carbon::parse($lastRecord->response_created_at)->toDateTimeString() : null,
                         'duration' => $duration,
+            'durationInSeconds' => $durationInSeconds,
             'apiErrorCount' => $apiErrorCount,
             'apiErrorsByStatus' => $apiErrorsByStatus,
         ]);
