@@ -200,17 +200,29 @@ class FireSingleStatement implements ShouldQueue
                 ]);
             }
         } catch (ConnectionException $e) {
-            Log::error('[ERROR] Single statement API connection failed', [
-                'statement_id' => $this->id,
-                'error' => $e->getMessage(),
-            ]);
+            $errorMessage = $e->getMessage();
+            $isTimeout = str_contains(strtolower($errorMessage), 'timeout');
+
+            if ($isTimeout) {
+                Log::error('[ERROR] Single statement API connection timed out', [
+                    'statement_id' => $this->id,
+                    'error' => $errorMessage,
+                ]);
+                $apiErrorMessage = 'Connection timed out after 60 seconds';
+            } else {
+                Log::error('[ERROR] Single statement API connection failed', [
+                    'statement_id' => $this->id,
+                    'error' => $errorMessage,
+                ]);
+                $apiErrorMessage = 'API connection failed';
+            }
 
             ApiError::create([
                 'url' => $url,
                 'method' => 'POST',
                 'request_payload' => json_encode($statement),
                 'status_code' => null, // No HTTP status code for connection exception
-                'error_message' => $e->getMessage(),
+                'error_message' => $apiErrorMessage,
                 'response_body' => null,
             ]);
             // Optionally rethrow or handle as per application's error handling strategy
