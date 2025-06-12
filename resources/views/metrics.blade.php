@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col">
     <nav class="bg-white shadow-md">
@@ -64,7 +65,12 @@
                 </div>
             </div>
 
-                        <div class="bg-gray-50 p-6 rounded-lg shadow mb-6">
+                                    <div class="bg-white p-6 rounded-lg shadow mb-6">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Responses per Second</h2>
+                <canvas id="responsesChart"></canvas>
+            </div>
+
+            <div class="bg-gray-50 p-6 rounded-lg shadow mb-6">
                 <h2 class="text-xl font-semibold text-gray-700 mb-4">Response Timestamps</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -118,5 +124,45 @@
             &copy; {{ date('Y') }} DSA Load Tester. All rights reserved.
         </div>
     </footer>
+
+@if ($count > 0)
+<script>
+    const ctx = document.getElementById('responsesChart');
+    const chartLabels = {!! json_encode($chartLabels) !!};
+    const chartData = {!! json_encode($chartData) !!};
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Responses per Second',
+                data: chartData,
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        // This ensures the y-axis has integer steps, which is appropriate for a count.
+                        callback: function(value) {if (Math.floor(value) === value) {return value;}}
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+</script>
+@endif
+
 </body>
 </html>

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\StatementResponse;
 use App\Models\ApiError;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class MetricsController extends Controller
 {
@@ -30,6 +31,17 @@ class MetricsController extends Controller
             ->orderBy('total', 'desc')
             ->get();
 
+        $responsesPerSecond = StatementResponse::select(
+            DB::raw("DATE_FORMAT(response_created_at, '%Y-%m-%d %H:%i:%S') as second"),
+            DB::raw('count(*) as count')
+        )
+        ->groupBy('second')
+        ->orderBy('second', 'asc')
+        ->get();
+
+        $chartLabels = $responsesPerSecond->pluck('second');
+        $chartData = $responsesPerSecond->pluck('count');
+
         return view('metrics', [
             'count' => $count,
             'firstRecordTime' => $firstRecord ? Carbon::parse($firstRecord->response_created_at)->toDateTimeString() : null,
@@ -38,6 +50,8 @@ class MetricsController extends Controller
             'durationInSeconds' => $durationInSeconds,
             'apiErrorCount' => $apiErrorCount,
             'apiErrorsByStatus' => $apiErrorsByStatus,
+            'chartLabels' => $chartLabels,
+            'chartData' => $chartData,
         ]);
     }
 
