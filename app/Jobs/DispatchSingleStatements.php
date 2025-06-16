@@ -16,18 +16,21 @@ class DispatchSingleStatements implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     private $total;
+    private $offset;
     private $batchSize;
 
     /**
      * Create a new job instance.
      *
      * @param int $total Total number of statements to dispatch
-     * @param int $batchSize Number of jobs to dispatch in each batch
+     * @param int $offset The starting point for this batch
+     * @param int $batchSize Number of jobs to dispatch in this batch
      * @return void
      */
-    public function __construct(int $total, int $batchSize = 10)
+    public function __construct(int $total, int $offset = 0, int $batchSize = 1000)
     {
         $this->total = $total;
+        $this->offset = $offset;
         $this->batchSize = $batchSize;
     }
 
@@ -38,33 +41,38 @@ class DispatchSingleStatements implements ShouldQueue
      */
     public function handle()
     {
-        // Force delete and reset all cache keys to ensure clean state
-        Cache::forget('single_processing_start');
-        Cache::forget('single_processing_end');
-        Cache::forget('single_processed_count');
-        Cache::forget('total_single_count');
-        
-        // Now set the initial values
-        Cache::put('single_processing_start', null, now()->addHours(1));
-        Cache::put('single_processing_end', null, now()->addHours(1));
-        Cache::put('single_processed_count', 0, now()->addHours(1));
-        
-        // Store the total number of single statements for later reference
-        Cache::put('total_single_count', $this->total, now()->addHours(1));
-        
-        // Log that we're starting to dispatch jobs
-        Log::info("[METRICS] Starting to dispatch {$this->total} single statements");
+        // On the first run, reset all relevant cache keys
+        if ($this->offset === 0) {
+            Cache::forget('single_processing_start');
+            Cache::forget('single_processing_end');
+            Cache::forget('single_processed_count');
+            Cache::forget('total_single_count');
 
-        // Process in smaller batches to avoid memory issues
-        for ($i = 1; $i <= $this->total; $i++) {
-            FireSingleStatement::dispatch($i);
+            // Set initial values
+            Cache::put('single_processing_start', null, now()->addHours(1));
+            Cache::put('single_processing_end', null, now()->addHours(1));
+            Cache::put('single_processed_count', 0, now()->addHours(1));
+            Cache::put('total_single_count', $this->total, now()->addHours(1));
 
-            // Add a small delay every batch to prevent overwhelming the queue
-            if ($i % $this->batchSize === 0) {
-                // No intermediate logging to reduce log verbosity
-            }
+            Log::info("[METRICS] Starting to dispatch {$this->total} single statements in batches of {$this->batchSize}");
         }
-        
-        Log::info("[METRICS] Completed dispatching all {$this->total} single statements");
+
+        // Determine the upper limit for this batch
+        $limit = $this->offset + $this->batchSize;
+        if ($limit > $this->total) {
+            $limit = $this->total;
+        }
+
+        // Dispatch jobs for the current batch
+        for ($i = $this->offset + 1; $i <= $limit; $i++) {
+            FireSingleStatement::dispatch($i);
+        }
+
+        // If there are more statements to dispatch, create a job for the next batch
+        if ($limit < $this->total) {
+            self::dispatch($this->total, $limit, $this->batchSize);
+        } else {
+            Log::info("[METRICS] Completed dispatching all {$this->total} single statements");
+        }
     }
 }

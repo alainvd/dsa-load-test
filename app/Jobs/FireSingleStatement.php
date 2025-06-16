@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\ApiError;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -17,7 +18,6 @@ use Illuminate\Container\Container;
 use Carbon\Carbon as CarbonTime;
 use Illuminate\Support\Facades\Cache;
 use App\Models\StatementResponse;
-use App\Models\ApiError;
 
 class FireSingleStatement implements ShouldQueue
 {
@@ -25,6 +25,8 @@ class FireSingleStatement implements ShouldQueue
 
     private $id;
     private $faker;
+    public $statement;
+    public $url;
 
     /**
      * Create a new job instance.
@@ -45,7 +47,7 @@ class FireSingleStatement implements ShouldQueue
     public function handle()
     {
         $this->faker = Container::getInstance()->make(Generator::class);
-        $url = config('app.remote_url_single');
+        $this->url = config('app.remote_url_single');
 
         $date_sent = $this->faker->dateTimeThisYear->format('Y-m-d');
         $content_date = $this->faker->dateTimeThisYear->format('Y-m-d');
@@ -107,7 +109,6 @@ class FireSingleStatement implements ShouldQueue
         }
 
         // Send a single statement instead of a batch
-        //$data = array('statements' => [$statement]);
 
         $startTime = CarbonTime::now();
 
@@ -120,95 +121,105 @@ class FireSingleStatement implements ShouldQueue
             ]);
         }
 
-        try {
-            $response = Http::timeout(60)->connectTimeout(60)->withHeaders([
-                'Authorization' => 'Bearer ' . config('app.remote_token'),
-                'accept' => 'application/json',
-                'content-type' => 'application/json'
-            ])->post($url, $statement);
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('app.remote_token'),
+            'accept' => 'application/json',
+            'content-type' => 'application/json'
+        ])->timeout(60)->post($this->url, $statement)->throw();
 
-            if ($response->successful()) {
-                $responseData = $response->json();
-                if (isset($responseData['uuid']) && isset($responseData['created_at'])) {
-                    StatementResponse::create([
-                        'uuid' => $responseData['uuid'],
-                        'response_created_at' => Carbon::parse($responseData['created_at']),
-                    ]);
-                }
-            }
-
-            $endTime = CarbonTime::now();
-
-            // Always update the end time as this could be the last statement
-            Cache::put('single_processing_end', $endTime->toIso8601String(), now()->addHours(1));
-
-            // Increment the processed count
-            $processed = Cache::increment('single_processed_count');
-            $total = Cache::get('total_single_count');
-
-            // Always log the current progress for debugging
-//        Log::debug("[METRICS] Single statement progress", [
-//            'processed' => $processed,
-//            'total' => $total,
-//            'statement_id' => $this->id
-//        ]);
-
-            // If this is the last statement, log the complete metrics
-            if ($processed >= $total) {
-                $startTimeStr = Cache::get('single_processing_start');
-                $endTimeStr = Cache::get('single_processing_end');
-
-                // Make sure we have valid timestamps
-                if ($startTimeStr && $endTimeStr) {
-                    $startTimeObj = CarbonTime::parse($startTimeStr);
-                    $endTimeObj = CarbonTime::parse($endTimeStr);
-                    $duration = $endTimeObj->diffInSeconds($startTimeObj);
-
-                    Log::info('[METRICS] All single statements completed', [
-                        'timestamp_start' => $startTimeStr,
-                        'timestamp_end' => $endTimeStr,
-                        'duration_seconds' => $duration,
-                        'total_statements' => $total,
-                        'processed_statements' => $processed
-                    ]);
-                } else {
-                    Log::warning('[METRICS] Could not generate final single statement metrics - missing timestamps', [
-                        'has_start_time' => (bool)$startTimeStr,
-                        'has_end_time' => (bool)$endTimeStr,
-                        'processed' => $processed,
-                        'total' => $total
-                    ]);
-                }
-            }
-
-            if ($response->failed()) {
-                Log::info('[ERROR] Single statement API call failed', [
-                    'statement_id' => $this->id,
-                    'status' => $response->status(),
-                    'response_body' => $response->body()
-                ]);
-
-                ApiError::create([
-                    'statement_response_id' => $this->id,
-                    // Or link to a specific statement if an ID is available before this call
-                    'url' => $url,
-                    'method' => 'POST',
-                    'request_payload' => json_encode($statement),
-                    'status_code' => $response->status(),
-                    'error_message' => 'API request failed for single statement',
-                    'response_body' => $response->body(),
+        if ($response->successful()) {
+            $responseData = $response->json();
+            if (isset($responseData['uuid']) && isset($responseData['created_at'])) {
+                StatementResponse::create([
+                    'uuid' => $responseData['uuid'],
+                    'response_created_at' => Carbon::parse($responseData['created_at']),
                 ]);
             }
-        } catch (ConnectionException $e) {
-            $errorMessage = $e->getMessage();
+        }
+
+        $endTime = CarbonTime::now();
+
+        // Always update the end time as this could be the last statement
+        Cache::put('single_processing_end', $endTime->toIso8601String(), now()->addHours(1));
+
+        // Increment the processed count
+        $processed = Cache::increment('single_processed_count');
+        $total = Cache::get('total_single_count');
+        Log::info("Processed: " . $processed . " - Total: " . $total);
+
+        // Always log the current progress for debugging
+        Log::debug("[METRICS] Single statement progress", [
+            'processed' => $processed,
+            'total' => $total,
+            'statement_id' => $this->id
+        ]);
+
+        // If this is the last statement, log the complete metrics
+        if ($processed >= $total) {
+            $startTimeStr = Cache::get('single_processing_start');
+            $endTimeStr = Cache::get('single_processing_end');
+            Log::info("single_processing_start: " . $startTimeStr);
+            Log::info("single_processing_end: " . $endTimeStr);
+
+            // Make sure we have valid timestamps
+            if ($startTimeStr && $endTimeStr) {
+                $startTimeObj = CarbonTime::parse($startTimeStr);
+                $endTimeObj = CarbonTime::parse($endTimeStr);
+                $duration = $endTimeObj->diffInSeconds($startTimeObj);
+
+                Log::info('[METRICS] All single statements completed', [
+                    'timestamp_start' => $startTimeStr,
+                    'timestamp_end' => $endTimeStr,
+                    'duration_seconds' => $duration,
+                    'total_statements' => $total,
+                    'processed_statements' => $processed
+                ]);
+            } else {
+                Log::warning('[METRICS] Could not generate final single statement metrics - missing timestamps', [
+                    'has_start_time' => (bool)$startTimeStr,
+                    'has_end_time' => (bool)$endTimeStr,
+                    'processed' => $processed,
+                    'total' => $total
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Handle a job failure.
+     *
+     * @param  \Throwable  $exception
+     * @return void
+     */
+    public function failed(\Throwable $exception)
+    {
+        if ($exception instanceof \Illuminate\Http\Client\RequestException) {
+            Log::error('[ERROR] Single statement API call failed', [
+                'statement_id' => $this->id,
+                'status' => $exception->response->status(),
+                'response_body' => $exception->response->body()
+            ]);
+
+            ApiError::create([
+                'statement_response_id' => $this->id,
+                'url' => $this->url,
+                'method' => 'POST',
+                'request_payload' => json_encode($this->statement),
+                'status_code' => $exception->response->status(),
+                'error_message' => 'API request failed for single statement',
+                'response_body' => $exception->response->body(),
+            ]);
+        } elseif ($exception instanceof ConnectionException) {
+            $errorMessage = $exception->getMessage();
             $isTimeout = str_contains(strtolower($errorMessage), 'timeout');
+            $apiErrorMessage = '';
 
             if ($isTimeout) {
                 Log::error('[ERROR] Single statement API connection timed out', [
                     'statement_id' => $this->id,
                     'error' => $errorMessage,
                 ]);
-                $apiErrorMessage = 'Connection timed out after 60 seconds';
+                $apiErrorMessage = 'Connection timed out';
             } else {
                 Log::error('[ERROR] Single statement API connection failed', [
                     'statement_id' => $this->id,
@@ -218,15 +229,18 @@ class FireSingleStatement implements ShouldQueue
             }
 
             ApiError::create([
-                'url' => $url,
+                'url' => $this->url,
                 'method' => 'POST',
-                'request_payload' => json_encode($statement),
+                'request_payload' => json_encode($this->statement),
                 'status_code' => null, // No HTTP status code for connection exception
                 'error_message' => $apiErrorMessage,
-                'response_body' => null,
+                'response_body' => $exception->getMessage(),
             ]);
-            // Optionally rethrow or handle as per application's error handling strategy
-            // throw $e;
+        } else {
+            Log::error('[ERROR] An unexpected error occurred in FireSingleStatement job.', [
+                'statement_id' => $this->id,
+                'exception' => $exception->getMessage(),
+            ]);
         }
     }
 }
