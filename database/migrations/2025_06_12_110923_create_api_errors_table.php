@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('api_errors', function (Blueprint $table) {
             $table->id();
-            $table->string('url');
+            $table->string('url')->nullable();
             $table->string('method');
             $table->text('request_payload')->nullable();
             $table->integer('statement_response_id')->nullable();
