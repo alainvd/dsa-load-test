@@ -121,7 +121,7 @@ class FireSingleStatement implements ShouldQueue
             ]);
         }
 
-        $response = Http::timeout(60)->connectTimeout(60)([
+        $response = Http::timeout(60)->connectTimeout(60)->withHeaders([
             'Authorization' => 'Bearer ' . config('app.remote_token'),
             'accept' => 'application/json',
             'content-type' => 'application/json'
