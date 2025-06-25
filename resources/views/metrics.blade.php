@@ -47,17 +47,21 @@
         @endif
 
         @if ($count > 0)
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                 <div class="bg-blue-50 p-6 rounded-lg shadow">
                     <h2 class="text-xl font-semibold text-blue-700 mb-2">Total Responses</h2>
                     <p class="text-3xl font-bold text-blue-500">{{ $count }}</p>
                 </div>
-                                <div class="bg-green-50 p-6 rounded-lg shadow">
+                <div class="bg-green-50 p-6 rounded-lg shadow">
                     <h2 class="text-xl font-semibold text-green-700 mb-2">Time Span</h2>
-                                        <p class="text-3xl font-bold text-green-500">{{ $duration ?? 'N/A' }}</p>
+                    <p class="text-3xl font-bold text-green-500">{{ $duration ?? 'N/A' }}</p>
                     @if($durationInSeconds !== null)
                         <p class="text-sm text-green-600">({{ $durationInSeconds }} seconds)</p>
                     @endif
+                </div>
+                <div class="bg-yellow-50 p-6 rounded-lg shadow">
+                    <h2 class="text-xl font-semibold text-yellow-700 mb-2">Statements / sec</h2>
+                    <p class="text-3xl font-bold text-yellow-500">{{ $statementsPerSecond }}</p>
                 </div>
                 <div class="bg-red-50 p-6 rounded-lg shadow">
                     <h2 class="text-xl font-semibold text-red-700 mb-2">API Errors</h2>
